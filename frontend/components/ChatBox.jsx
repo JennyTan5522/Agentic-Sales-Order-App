@@ -20,6 +20,8 @@ export default function ChatBox({
   loading = false,
   error = null,
   companyName,
+  country,
+  region,
   customerOptions = [],
   selectedCustomers = [],
   onSearchCustomer,
@@ -190,6 +192,26 @@ export default function ChatBox({
       return next;
     });
   };
+
+  // Determine Shipping Method (Code, Agent) based on form folder location
+  const getShippingByLocation = React.useCallback(() => {
+    const c = (country || "").toUpperCase().trim();
+    const r = (region || "").toLowerCase();
+    // Country-wide overrides
+    if (c === "SG") return { code: "Transport", agent: "Ter Chong" };
+    if (c === "VN") return { code: "Own Logistics", agent: "Own Logistics" };
+    // Region heuristics (Malaysia regions typically)
+    if (r.includes("central") || r.includes("kl")) {
+      return { code: "Own Logistics", agent: "Own Logistics" };
+    }
+    if (r.includes("north") || r.includes("east")) {
+      return { code: "Courier", agent: "DHL" };
+    }
+    if (r.includes("south")) {
+      return { code: "Transport", agent: "Ter Chong" };
+    }
+    return { code: "", agent: "" };
+  }, [country, region]);
 
   const getCustomerOptions = (idx) => {
     const opts = customerOptions?.[idx];
@@ -439,6 +461,26 @@ export default function ChatBox({
                         <p className={UI.label}>Ship To</p>
                         {/* TODO: Update the shipping address linked with the current customer (reAct) */}
                         <p className={UI.value}>{so?.shipping_address || "-"}</p>
+                      </div>
+
+                      {/* Shipping Method (Code & Agent) derived from form folder name (country/region) */}
+                      <div>
+                        <p className={UI.label}>Shipping Method</p>
+                        {(() => {
+                          const ship = getShippingByLocation();
+                          return (
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <div className="text-gray-600">Code</div>
+                                <div className="text-gray-900">{ship.code || '-'}</div>
+                              </div>
+                              <div>
+                                <div className="text-gray-600">Agent</div>
+                                <div className="text-gray-900">{ship.agent || '-'}</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                       {selectedCustomers?.[idx] ? (
                         <div className="sm:col-span-2">

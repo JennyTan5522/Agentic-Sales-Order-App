@@ -265,6 +265,8 @@ function App() {
             loading={loading}
             error={error}
             companyName={lastForm?.companyName}
+            country={lastForm?.country}
+            region={lastForm?.region}
             customerOptions={customerOptions}
             selectedCustomers={selectedCustomers}
             onSearchCustomer={handleSearchCustomerForOrder}
