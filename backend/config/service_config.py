@@ -1,5 +1,10 @@
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from enum import Enum
+
+class BCEnvironment(str, Enum):
+    TEST = "JotexTest"
+    PRODUCTION = "Production"
 
 class ServiceConfig(BaseSettings):
     """
@@ -14,7 +19,8 @@ class ServiceConfig(BaseSettings):
     CLIENT_SECRET: SecretStr = Field(..., description="OAuth Client Secret")
     TENANT_ID: SecretStr = Field(..., description="OAuth Tenant ID")
     ONEDRIVE_EMAIL: str = Field(..., description="OneDrive Email")
-    BC_ENV_NAME: str = Field(..., description="Business Central Environment Name")
+    
+    BC_ENV_NAME: BCEnvironment = Field(..., description="Business Central Environment Name")
     ONEDRIVE_DIR_PATH: str = Field(default="Documents/PO_FABRICS", description="OneDrive Directory Path for PO Fabrics")
 
     OPENAI_API_KEY: SecretStr = Field(..., description="OpenAI API Key")
