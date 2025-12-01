@@ -3,7 +3,8 @@ import TextField from "./fields/TextField";
 import DateField from "./fields/DateField";
 import SelectField from "./fields/SelectField";
 
-const API_BASE = import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+// const API_BASE = import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = 'http://localhost:8001';
 const MONTH_NAMES = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
 function fetchJson(url) {
@@ -21,13 +22,20 @@ function fetchJson(url) {
 }
 
 export default function Sidebar({ onSearch, loading }) {
-  const required = (text) => (<>{text} <span className="text-red-500">*</span></>);
+  const required = (text) => (
+    <>
+      {text} <span className="text-red-500">*</span>
+    </>
+  );
   const today = new Date().toISOString().slice(0, 10);
 
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
   const [regions, setRegions] = useState([]);
   const [onedriveBase, setOnedriveBase] = useState("");
+
+  const [envOptions, setEnvOptions] = useState([]);
+  const [bcEnv, setBcEnv] = useState("");
 
   const [form, setForm] = useState({
     companyName: "",
@@ -37,15 +45,34 @@ export default function Sidebar({ onSearch, loading }) {
   });
 
   const COUNTRY_COMPANY_MAP = {
-      MY: "Jotex Sdn Bhd",
-      SG: "Jotex Pte Ltd",
-    }
+    MY: "Jotex Sdn Bhd",
+    SG: "Jotex Pte Ltd",
+  };
 
   const categories = [
     { label: "FABRICS", value: "FABRICS" },
     { label: "SmartHome", value: "SmartHome" },
   ];
 
+  // --- Load BC env options and default selected env from backend ---
+  useEffect(() => {
+    fetchJson(`${API_BASE}/api/config/bc_env_options`)
+      .then((data) => {
+        setEnvOptions(
+          (data?.options || []).map((env) => ({
+            label: env,
+            value: env,
+          }))
+        );
+        // default selected env from backend config
+        setBcEnv(data?.selected || "");
+      })
+      .catch((err) => {
+        console.error("Failed to load BC Environment options:", err);
+      });
+  }, []);
+
+  // --- Load OneDrive base path ---
   useEffect(() => {
     fetchJson(`${API_BASE}/api/config/onedrive_dir_path`)
       .then((data) => {
@@ -57,7 +84,10 @@ export default function Sidebar({ onSearch, loading }) {
       });
   }, []);
 
+  // --- Fetch company names whenever env changes (backend uses global env) ---
   useEffect(() => {
+    if (!bcEnv) return;
+
     fetchJson(`${API_BASE}/api/company_names`)
       .then((data) => {
         if (Array.isArray(data?.company_names)) {
@@ -69,29 +99,30 @@ export default function Sidebar({ onSearch, loading }) {
       .catch((err) => {
         console.error("Failed to load company names:", err);
       });
-  }, []);
+  }, [bcEnv]);
 
+  // --- Initial countries by year ---
   useEffect(() => {
     fetchCountriesByYear(today);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // --- Regions whenever country/date changes ---
   useEffect(() => {
     if (form.country) {
       fetchRegionsByCountry(form.country, form.date);
     }
-    // Only when country or date changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.country, form.date]);
 
-  // Auto-select company by country
+  // --- Auto-select company by country ---
   useEffect(() => {
     const targetName = COUNTRY_COMPANY_MAP[form.country];
     if (!targetName) return;
 
     const match = companies.find((c) => (c.value || c.label) === targetName);
     if (match && form.companyName !== match.value) {
-    setForm((prev) => ({ ...prev, companyName: match.value }));
+      setForm((prev) => ({ ...prev, companyName: match.value }));
     }
   }, [form.country, companies]);
 
@@ -131,7 +162,6 @@ export default function Sidebar({ onSearch, loading }) {
   }
 
   function handleSubmit(e) {
-    // Stop page reload
     e.preventDefault();
 
     const missing = [];
@@ -141,8 +171,12 @@ export default function Sidebar({ onSearch, loading }) {
     if (!form.date?.trim()) missing.push("Date");
     if (!form.category?.trim()) missing.push("Category");
     if (missing.length) {
-    alert(`Please complete all required fields before proceeding:\n${missing.join(", ")}`);
-    return;
+      alert(
+        `Please complete all required fields before proceeding:\n${missing.join(
+          ", "
+        )}`
+      );
+      return;
     }
 
     onSearch?.(form); // send form data up to App
@@ -168,7 +202,9 @@ export default function Sidebar({ onSearch, loading }) {
 
   function fetchRegionsByCountry(country, date) {
     const year = date.slice(0, 4);
-    const url = `${API_BASE}/api/regions?country=${encodeURIComponent(country)}&year=${year}`;
+    const url = `${API_BASE}/api/regions?country=${encodeURIComponent(
+      country
+    )}&year=${year}`;
 
     fetchJson(url)
       .then((data) => {
@@ -186,6 +222,29 @@ export default function Sidebar({ onSearch, loading }) {
   return (
     <aside className="h-screen w-full max-w-[320px] shrink-0 border-r border-gray-200 bg-white p-4 overflow-y-auto">
       <form onSubmit={handleSubmit} className="grid gap-4 cursor-pointer">
+        {/* BC Environment dropdown */}
+        <SelectField
+          label={required("🌐 BC Environment")}
+          name="bcEnv"
+          value={bcEnv}
+          onChange={(e) => {
+            const value = e.target.value;
+            setBcEnv(value);
+
+            // Notify backend to update global BC env
+            fetch(`${API_BASE}/api/config/set_bc_env`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ env_name: value }),
+            }).catch((err) => {
+              console.error("Failed to update BC Environment:", err);
+            });
+          }}
+          options={envOptions}
+        />
+
+        <hr className="border-t border-gray-200 my-2" />
+
         <SelectField
           label={required("🏢 Company Name")}
           name="companyName"
@@ -251,10 +310,10 @@ export default function Sidebar({ onSearch, loading }) {
           type="submit"
           disabled={loading}
           className={`inline-flex w-full items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition cursor-pointer ${
-                      loading
-                        ? "bg-gray-400 text-white cursor-not-allowed"
-                        : "bg-gray-500 text-white hover:bg-gray-600"
-                    }`}
+            loading
+              ? "bg-gray-400 text-white cursor-not-allowed"
+              : "bg-gray-500 text-white hover:bg-gray-600"
+          }`}
         >
           Search
         </button>
