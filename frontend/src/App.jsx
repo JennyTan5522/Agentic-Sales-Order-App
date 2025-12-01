@@ -2,7 +2,9 @@ import React, { useCallback, useState } from 'react';
 import Sidebar from '/components/Sidebar.jsx';
 import ChatBox from '../components/ChatBox';
 
-const API_BASE = import.meta?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+// const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = 'http://localhost:8001';
+console.log("API BASE: " + API_BASE)
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -50,7 +52,24 @@ function App() {
       // Fetch sales order details using folder path
       const salesOrderUrl = `${API_BASE}/api/get_sales_order_details?folder_path=${encodeURIComponent(form.folderPath)}`;
       const salesOrderRes = await fetch(salesOrderUrl);
+      
+      if (!salesOrderRes.ok) {
+        const contentType = salesOrderRes.headers.get("content-type") || "";
+        let errorMsg = `Server error: ${salesOrderRes.status} ${salesOrderRes.statusText}`;
+        if (contentType.includes("application/json")) {
+          const errorData = await salesOrderRes.json();
+          errorMsg = errorData?.error || errorMsg;
+        } else {
+          const text = await salesOrderRes.text();
+          errorMsg = text.slice(0, 200) || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+      
       const salesOrderData = await salesOrderRes.json();
+      if (salesOrderData?.error) {
+        throw new Error(salesOrderData.error);
+      }
       setOrders(Array.isArray(salesOrderData?.sales_orders_items) ? salesOrderData.sales_orders_items : []);
       setImages(Array.isArray(salesOrderData?.sales_orders_images_b64) ? salesOrderData.sales_orders_images_b64 : []);
 
@@ -139,7 +158,13 @@ function App() {
         setSelectedCustomers([]);
       }
     }catch(err){
-      setError(err.message);
+      // Show backend error messages clearly in the UI
+      let msg = err?.message || String(err);
+      // If the error message contains 'empty or does not exist', show it as a friendly message
+      if (msg.includes('empty or does not exist')) {
+        msg = `No sales order images found: ${msg}`;
+      }
+      setError(msg);
     }finally{
       setLoading(false);
     }
@@ -245,7 +270,7 @@ function App() {
           </svg>
         </button>
         <img src="/jotex-header-logo.png" alt="JoTex Logo" className="h-6 w-24" />
-        Sales Order AI Assistant 
+        AI-Driven Sales Order Builder 
       </div>
 
       {/* Main Layout */}
