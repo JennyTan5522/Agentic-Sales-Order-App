@@ -31,22 +31,13 @@ handlers: # Define where log messages go
     formatter: color
     stream: ext://sys.stdout
   
-  file_debug: # Log files with today's date
+  file_all: # Single log file with today's date (all levels combined)
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
     filename: logs/app_%(date)s.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
-    encoding: utf8
-  
-  file_error: # Error log files with today's date
-    class: logging.handlers.RotatingFileHandler
-    level: ERROR
-    formatter: detailed
-    filename: logs/error_%(date)s.log
-    maxBytes: 10485760
-    backupCount: 10
     encoding: utf8
 
 # Silent to third party loggers
@@ -67,4 +58,4 @@ loggers:
 # Single root logger for all modules
 root:
   level: INFO
-  handlers: [console, file_debug, file_error]
+  handlers: [console, file_all]
