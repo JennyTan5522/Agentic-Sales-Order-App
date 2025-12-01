@@ -2,18 +2,10 @@ import requests
 from src.utils.logger import get_logger
 from langchain_core.tools import tool
 from urllib.parse import quote
-from config.service_config import ServiceConfig
-from src.utils.access_auth import BusinessCentralAuth
+from src.utils.bc_env import get_bc_auth
 
+bc_auth = get_bc_auth()
 logger = get_logger(__name__)
-
-config = ServiceConfig()
-bc_auth = BusinessCentralAuth(
-    tenant_id=config.TENANT_ID.get_secret_value(),
-    client_id=config.CLIENT_ID.get_secret_value(),
-    client_secret=config.CLIENT_SECRET.get_secret_value(),
-    azure_bc_env_name=config.BC_ENV_NAME,
-)
 
 @tool
 def search_customers_by_name(company_name: str, customer_name_query: str, top_k: int = 5) -> str:
@@ -37,7 +29,7 @@ def search_customers_by_name(company_name: str, customer_name_query: str, top_k:
         filter_expr = f"contains(displayName,'{quote(customer_name_query)}')"
 
         endpoint = (
-            f"{bc_auth.base_url}/companies({company_id})/customers"
+            f"{bc_auth.rest_api_base_url}/companies({company_id})/customers"
             f"?$filter={filter_expr}"
             f"&$top={int(top_k)}"
         )
@@ -85,7 +77,7 @@ def search_product_items_by_name(company_name: str, item_name_query: str, item_c
         filter_expr = f"itemCategoryCode eq '{quote(item_category)}' AND contains(displayName,'{quote(item_name_query)}')"
 
         endpoint = (
-            f"{bc_auth.base_url}/companies({company_id})/items"
+            f"{bc_auth.rest_api_base_url}/companies({company_id})/items"
             f"?$filter={filter_expr}"
             f"&$top={int(top_k)}"
         )
