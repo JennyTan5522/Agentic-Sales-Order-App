@@ -108,6 +108,7 @@ class InsertSORequest(BaseModel):
     sales_order_lines: List[SalesOrderLine]
     comments: str = ""
     ship_to_address: Optional[Address] = None
+    order_discount_amount: float = 0.0
 
 class InsertLotIntoSO(BaseModel):
     company_name: str
@@ -554,6 +555,7 @@ async def insert_so_into_bc(req: InsertSORequest):
         auth = get_bc_auth()
 
         ship_to_address = req.ship_to_address.dict() if req.ship_to_address else None
+        order_discount_amt = req.order_discount_amount or 0.0
 
         insert_kwargs = {
             "company_name": req.company_name,
@@ -563,7 +565,9 @@ async def insert_so_into_bc(req: InsertSORequest):
             "shipping_agent_code": req.shipping_agent_code,
             "sales_order_lines": [line.dict() for line in req.sales_order_lines],
             "comments": req.comments,
+            "order_discount_amt": order_discount_amt
         }
+
         if ship_to_address and ship_to_address.get("mode") == "CUSTOM":
             insert_kwargs.update({
                 "ship_to_name": req.customer_name,
