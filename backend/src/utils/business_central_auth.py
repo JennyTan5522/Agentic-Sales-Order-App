@@ -343,7 +343,7 @@ class BusinessCentralAuth:
         so_payload = {
                 "customerNumber": customer_id,
                 "externalDocumentNumber": external_doc_no,
-                "shipmentMethodId": shipping_method_id
+                "shipmentMethodId": shipping_method_id,
         }
 
         if ship_to_name and ship_to_address:
@@ -463,7 +463,32 @@ class BusinessCentralAuth:
         response.raise_for_status()
         logger.info("Comment line inserted successfully.")
 
-    def insert_sales_order(self, company_name: str, customer_id: str, external_doc_no: str, shipping_method_id: str, shipping_agent_code: str, sales_order_lines: List[Dict], comments: str, ship_to_name: Optional[str]=None, ship_to_address: Optional[Dict[str, str]]=None) -> Dict[str, str]:
+    def _update_total_discount_amount(self, access_token: str, company_id: str, so_id: str, discount_amount: float) -> None:
+        """
+        Update the total discount amount on an existing Sales Order in Business Central.
+
+        Args:
+            access_token (str): A valid OAuth2 Bearer token used to authenticate the request.
+            company_id (str): The Business Central company identifier (GUID) where the Sales Order exists.
+            so_id (str): The unique system ID of the Sales Order to be updated.
+            discount_amount (float): The total discount amount (in LCY) to apply to the Sales Order.
+        """
+
+        endpoint = f"{self.rest_api_base_url}/companies({company_id})/salesOrders({so_id})"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "If-Match": "*"
+        }
+        payload = {"discountAmount": discount_amount}
+
+        logger.info( f"Updating total discount amount for Sales Order (ID: {so_id}) with discount value: {discount_amount}.")
+
+        response = requests.patch(endpoint, headers=headers, json=payload)
+        response.raise_for_status()
+
+        logger.info(f"Successfully updated total discount amount for Sales Order (ID: {so_id}).")
+
+    def insert_sales_order(self, company_name: str, customer_id: str, external_doc_no: str, shipping_method_id: str, shipping_agent_code: str, sales_order_lines: List[Dict], comments: str, order_discount_amt: float, ship_to_name: Optional[str]=None, ship_to_address: Optional[Dict[str, str]]=None) -> Dict[str, str]:
         """
         Create a new Sales Order in Business Central, insert its line items, and an optional comment line.
 
@@ -476,6 +501,7 @@ class BusinessCentralAuth:
             sales_order_lines (List[Dict]): List of sales order lines, each like:
                 {'lineObjectNumber': 'JOT0006169', 'quantity': 1}
             comments (str): Comment text to insert as a comment line.
+            order_discount_amt (float): Order Discount total amount from the SO.
             ship_to_name (Optional[str], default=None): The Ship-To name to apply to the Sales Order. If None, the customer's default Ship-To name will be used.
             ship_to_address (Optional[Dict[str, str]], default=None): A dictionary containing custom Ship-To address fields.
 
@@ -512,7 +538,6 @@ class BusinessCentralAuth:
                 shipping_agent_code=shipping_agent_code
             )
 
-
             # 3) Insert item lines
             self._insert_sales_order_lines(
                 company_id=company_id,
@@ -527,6 +552,14 @@ class BusinessCentralAuth:
                 so_id=so_id,
                 comments=comments,
                 headers=headers,
+            )
+
+            # 5) Updae total discount amount in SO
+            self._update_total_discount_amount(
+                access_token=access_token,
+                company_id=company_id,
+                so_id=so_id, 
+                discount_amount=order_discount_amt
             )
 
             logger.info("Sales Order creation completed successfully.")
@@ -1013,7 +1046,7 @@ class BusinessCentralAuth:
         )
 
         logger.debug(f"Allocation results: {selected_lots}")
-        return {"status": "success", "selected_lots": selected_lots}
+        return {"status": "success", "lot_list": lot_list, "selected_lots": selected_lots}
 
     def insert_lot_into_sales_order(self, company_name: str, selected_lots: List[Dict[str, Any]], sales_order_no: str) -> None:
         """Main entry to insert lots into a sales order."""
