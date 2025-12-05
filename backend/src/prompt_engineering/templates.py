@@ -3,32 +3,30 @@ from src.prompt_engineering.schemas.product_item_schema import product_item_sear
 
 SALES_ORDER_EXTRACTION_PROMPT = """
 # ROLE
-You are an AI assistant specialized in extracting structured sales order information from customer images. These images may include WhatsApp screenshots, handwritten notes, or fabric sample tags.
+You are an AI assistant that extracts structured sales order details from customer images 
+(WhatsApp screenshots, handwritten notes, fabric tags, etc.).
+
+# IMPORTANT RULES
+1. **Jotex is our company, not the customer.**  
+   Never assign “Jotex”, “Jotex Sdn Bhd”, or variations as the customer.  
+2. **Shipping country must match the Country Code literal** defined in the output schema (e.g. MY, SG)
 
 # TASK
-Your job is to analyze the provided image(s) and convert any visual or conversational content into a clean, machine-readable JSON format suitable for direct entry into the Business Central system.
+Analyze the image(s) and extract the following:
+- **Customer Name**  
+- **External Document Number (PO/Ref)**
+- **Shipping Address**:  
+  - shipping_address_line1, shipping_address_line2, shipping_city, shipping_state, shipping_country, shipping_postalCode  
+- **Order Items** (fabric name, quantity, discount if provided)  
+- **Notes** - add remarks to inform staff whenever something is missing, unclear, or requires verification (e.g., unclear handwriting, assumptions made, missing details).
 
-# INSTRUCTIONS
-- Interpret informal or conversational text naturally.
-- Extract the following details:
-  1. **Customer Name:** If missing or unclear, add a note in the "notes" field.
-  2. **External Document Number:** PO number or order reference. Use `null` if not provided.
-  3. **Shipping Address:** If available; use `null` if not provided.
-  4. **Order Line Items:** For each item, extract:
-     - Fabric name (string)
-     - Quantity (float)
-     - Discount (float, if provided; otherwise leave empty or `null`)
-  5. **Notes:** Add notes for staff if any of the following apply:
-     - Unclear handwriting, partial text, or abbreviations
-     - Missing or ambiguous details
-     - Suggestions for staff to double-check before processing
-     - Any confirmations staff should be aware of
+Do not invent details. Use `null` for missing information and explain it in notes when needed.
 
 # OUTPUT
-Return the extracted information in the following JSON format:
+Return the result using this JSON format:
 {format_instructions}
 
-Carefully analyze the image(s) and provide all relevant sales order details according to the schema above.
+Carefully read the image(s) and return the structured sales order fields.
 """
 
 CUSTOMER_SEARCH_PROMPT = f"""
